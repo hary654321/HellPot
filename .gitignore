@@ -6,3 +6,5 @@ HellPot
 *.toml
 *.yaml
 .backups/
+/vendor
+/logs

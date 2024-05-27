@@ -13,6 +13,6 @@
 [logger]
   debug = false
   trace = false
-  directory = "/logs/"
+  directory = "./logs/"
   nocolor = true
   use_date_filename = true
