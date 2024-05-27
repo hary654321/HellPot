@@ -3,8 +3,10 @@ package http
 import (
 	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,27 +33,36 @@ func hellPot(ctx *fasthttp.RequestCtx) {
 	if len(path) < 1 || !pok {
 		path = "/"
 	}
-
-	remoteAddr := getRealRemote(ctx)
+	localHost, localPort, _ := net.SplitHostPort(ctx.LocalAddr().String())
+	remoteHost, remotePort, _ := net.SplitHostPort(ctx.RemoteAddr().String())
+	currentTime := time.Now()
+	// 将时间转换为毫秒时间戳
+	milliseconds := currentTime.UnixNano() / int64(time.Millisecond)
 
 	slog := log.With().
-		Str("USERAGENT", string(ctx.UserAgent())).
-		Str("REMOTE_ADDR", remoteAddr).
-		Interface("URL", string(ctx.RequestURI())).Logger()
+		Str("protocol", "http").
+		Str("name", "HellPot").
+		Str("app", "HellPot").
+		Str("UUID", "<UUID>").
+		Str("dest_ip", localHost).
+		Str("src_ip", remoteHost).
+		Int("dest_port", getStr2int(localPort)).
+		Int("src_port", getStr2int(remotePort)).
+		Int64("timestamp", milliseconds).
+		Logger()
 
 	for _, denied := range config.UseragentBlacklistMatchers {
 		if strings.Contains(string(ctx.UserAgent()), denied) {
-			slog.Trace().Msg("Ignoring useragent")
 			ctx.Error("Not found", http.StatusNotFound)
 			return
 		}
 	}
 
-	if config.Trace {
-		slog = slog.With().Str("caller", path).Logger()
-	}
+	extend := make(map[string]any)
 
-	slog.Info().Msg("NEW")
+	slog.Info().
+		Interface("extend", extend).
+		Str("type", "new-connect").Msg("NEW")
 
 	s := time.Now()
 	var n int64
@@ -64,17 +75,32 @@ func hellPot(ctx *fasthttp.RequestCtx) {
 			wn, err = heffalump.DefaultHeffalump.WriteHell(bw)
 			n += wn
 			if err != nil {
-				slog.Trace().Err(err).Msg("END_ON_ERR")
+				slog.Trace().Err(err).Str("type", "END_ON_ERR").Msg("END_ON_ERR")
 				break
 			}
 		}
 
+		extend := make(map[string]any)
+		extend["bytes"] = n
+		extend["duration"] = time.Since(s)
 		slog.Info().
-			Int64("BYTES", n).
-			Dur("DURATION", time.Since(s)).
+			Interface("extend", extend).
+			Str("type", "FINISH").
 			Msg("FINISH")
 	})
 
+}
+
+func getStr2int(a string) int {
+	num, err := strconv.Atoi(a)
+	if err != nil {
+		fmt.Println("转换失败:", err)
+		return 0
+	}
+
+	fmt.Println("转换后的整数:", num)
+
+	return num
 }
 
 func getSrv(r *router.Router) fasthttp.Server {
@@ -130,11 +156,11 @@ func Serve() error {
 
 	if !config.CatchAll {
 		for _, p := range config.Paths {
-			log.Trace().Str("caller", "router").Msgf("Add route: %s", p)
+			// log.Trace().Str("caller", "router").Msgf("Add route: %s", p)
 			r.GET(fmt.Sprintf("/%s", p), hellPot)
 		}
 	} else {
-		log.Trace().Msg("Catch-All mode enabled...")
+		// log.Trace().Msg("Catch-All mode enabled...")
 		r.GET("/{path:*}", hellPot)
 	}
 
@@ -142,7 +168,7 @@ func Serve() error {
 
 	//goland:noinspection GoBoolExpressions
 	if !config.UseUnixSocket || runtime.GOOS == "windows" {
-		log.Info().Str("caller", l).Msg("Listening and serving HTTP...")
+		// log.Info().Str("caller", l).Msg("Listening and serving HTTP...")
 		return srv.ListenAndServe(l)
 	}
 
@@ -150,6 +176,6 @@ func Serve() error {
 		log.Fatal().Msg("unix_socket_path configuration directive appears to be empty")
 	}
 
-	log.Info().Str("caller", config.UnixSocketPath).Msg("Listening and serving HTTP...")
+	// log.Info().Str("caller", config.UnixSocketPath).Msg("Listening and serving HTTP...")
 	return listenOnUnixSocket(config.UnixSocketPath, r)
 }

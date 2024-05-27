@@ -27,14 +27,7 @@ func init() {
 		os.Exit(0)
 	}
 
-	switch config.DockerLogging {
-	case true:
-		config.CurrentLogFile = "/dev/stdout"
-		config.NoColor = true
-		log = config.StartLogger(false, os.Stdout)
-	default:
-		log = config.StartLogger(true)
-	}
+	log = config.StartLogger(true)
 
 	extra.Banner()
 }
@@ -44,7 +37,7 @@ func main() {
 	signal.Notify(stopChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		log.Fatal().Err(http.Serve()).Msg("HTTP error")
+		log.Error().Err(http.Serve()).Msg("HTTP error")
 	}()
 
 	<-stopChan // wait for SIGINT
