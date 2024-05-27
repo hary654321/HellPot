@@ -75,7 +75,9 @@ func hellPot(ctx *fasthttp.RequestCtx) {
 			wn, err = heffalump.DefaultHeffalump.WriteHell(bw)
 			n += wn
 			if err != nil {
-				slog.Trace().Err(err).Str("type", "END_ON_ERR").Msg("END_ON_ERR")
+				slog.Trace().Err(err).
+					Str("type", "error-connect").
+					Msg("END_ON_ERR")
 				break
 			}
 		}
@@ -85,8 +87,8 @@ func hellPot(ctx *fasthttp.RequestCtx) {
 		extend["duration"] = time.Since(s)
 		slog.Info().
 			Interface("extend", extend).
-			Str("type", "FINISH").
-			Msg("FINISH")
+			Str("type", "close-connect").
+			Msg("close-connection")
 	})
 
 }
@@ -150,6 +152,7 @@ func Serve() error {
 
 	r := router.New()
 
+	//配置不会走到这里
 	if config.MakeRobots && !config.CatchAll {
 		r.GET("/robots.txt", robotsTXT)
 	}
